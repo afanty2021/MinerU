@@ -11,7 +11,7 @@ Options:
   -p, --path PATH                 Input file path or directory (required)
   -o, --output PATH               Output directory (required)
   -m, --method [auto|txt|ocr]     Parsing method: auto (default), txt, ocr (pipeline backend only)
-  -b, --backend [pipeline|vlm-transformers|vlm-vllm-engine|vlm-http-client]
+  -b, --backend [pipeline|vlm-transformers|vlm-vllm-engine|vlm-lmdeploy-engine|vlm-http-client]
                                   Parsing backend (default: pipeline)
   -l, --lang [ch|ch_server|ch_lite|en|korean|japan|chinese_cht|ta|te|ka|th|el|latin|arabic|east_slavic|cyrillic|devanagari]
                                   Specify document language (improves OCR accuracy, pipeline backend only)
@@ -100,3 +100,14 @@ Here are the environment variables and their descriptions:
     * Used to enable table merging functionality
     * Default is `true`, can be set to `false` via environment variable to disable table merging functionality.
 
+- `MINERU_PDF_RENDER_TIMEOUT`:
+    * Used to set the timeout period (in seconds) for rendering PDF to images
+    * Default is `300` seconds, can be set to other values via environment variable to adjust the image rendering timeout.
+
+- `MINERU_INTRA_OP_NUM_THREADS`:
+    * Used to set the intra_op thread count for ONNX models, affects the computation speed of individual operators
+    * Default is `-1` (auto-select), can be set to other values via environment variable to adjust the thread count.
+
+- `MINERU_INTER_OP_NUM_THREADS`:
+    * Used to set the inter_op thread count for ONNX models, affects the parallel execution of multiple operators
+    * Default is `-1` (auto-select), can be set to other values via environment variable to adjust the thread count.

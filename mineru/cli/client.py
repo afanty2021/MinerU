@@ -4,7 +4,7 @@ import click
 from pathlib import Path
 from loguru import logger
 
-from mineru.utils.check_mac_env import is_mac_os_version_supported
+from mineru.utils.check_sys_env import is_mac_os_version_supported
 from mineru.utils.cli_parser import arg_parse
 from mineru.utils.config_reader import get_device
 from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
@@ -13,7 +13,7 @@ from ..version import __version__
 from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
 
 
-backends = ['pipeline', 'vlm-transformers', 'vlm-vllm-engine', 'vlm-http-client']
+backends = ['pipeline', 'vlm-transformers', 'vlm-vllm-engine', 'vlm-lmdeploy-engine', 'vlm-http-client']
 if is_mac_os_version_supported():
     backends.append("vlm-mlx-engine")
 
@@ -62,9 +62,10 @@ if is_mac_os_version_supported():
     the backend for parsing pdf:
       pipeline: More general.
       vlm-transformers: More general, but slower.
-      vlm-mlx-engine: Faster than transformers.
-      vlm-vllm-engine: Faster(engine).
-      vlm-http-client: Faster(client).
+      vlm-mlx-engine: Faster than transformers(macOS 13.5+).
+      vlm-vllm-engine: Faster(vllm-engine).
+      vlm-lmdeploy-engine: Faster(lmdeploy-engine).
+      vlm-http-client: Faster(client suitable for openai-compatible servers).
     Without method specified, pipeline will be used by default.""",
     default='pipeline',
 )
@@ -112,7 +113,7 @@ if is_mac_os_version_supported():
     '--formula',
     'formula_enable',
     type=bool,
-    help='Enable formula parsing. Default is True. Adapted only for the case where the backend is set to "pipeline".',
+    help='Enable formula parsing. Default is True. ',
     default=True,
 )
 @click.option(
@@ -120,7 +121,7 @@ if is_mac_os_version_supported():
     '--table',
     'table_enable',
     type=bool,
-    help='Enable table parsing. Default is True. Adapted only for the case where the backend is set to "pipeline".',
+    help='Enable table parsing. Default is True. ',
     default=True,
 )
 @click.option(
@@ -171,9 +172,8 @@ def main(
         def get_virtual_vram_size() -> int:
             if virtual_vram is not None:
                 return virtual_vram
-            if get_device_mode().startswith("cuda") or get_device_mode().startswith("npu"):
-                return round(get_vram(get_device_mode()))
-            return 1
+            else:
+                return get_vram(get_device_mode())
         if os.getenv('MINERU_VIRTUAL_VRAM_SIZE', None) is None:
             os.environ['MINERU_VIRTUAL_VRAM_SIZE']= str(get_virtual_vram_size())
 
