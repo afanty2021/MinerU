@@ -1,6 +1,7 @@
 # MinerU 项目 AI 上下文文档
 
 ## 变更记录 (Changelog)
+- 2025-12-31 11:45:00 - 第五次增量更新：新增Hybrid混合后端模块（v2.7.0核心特性），更新后端架构为三引擎模式，添加自动引擎选择说明
 - 2025-11-17 17:10:09 - 第四次深度增量更新：Pipeline/VLM/Data技术实现深度分析，API文档、性能优化、运维指南，覆盖率提升至70%+
 - 2025-11-17 17:02:15 - 深度增量更新：新增Multi-GPU V2、Tests、Docker模块文档，深度分析MFR/Table实现，覆盖率提升至55%+
 - 2025-11-17 16:46:31 - 增量更新：新增Utils模块、Tianshu项目文档，更新架构图，覆盖率提升至37.5%
@@ -15,7 +16,7 @@ MinerU是一个开源的PDF到Markdown转换工具，专注于高质量文档内
 MinerU采用模块化架构设计，主要包含以下层次：
 
 - **CLI层**: 命令行工具、API服务、Gradio Web界面
-- **后端层**: 两种解析引擎 - Pipeline（传统流水线）和VLM（视觉语言模型）
+- **后端层**: 三种解析引擎 - Pipeline（传统流水线）、VLM（视觉语言模型）、Hybrid（混合模式，默认）
 - **模型层**: 布局检测、OCR、公式识别、表格识别等专业模型
 - **数据层**: 文件读写、数据处理、存储抽象
 - **工具层**: 配置管理、设备检测、模型下载等工具
@@ -44,6 +45,7 @@ graph TD
 
     B2 --> B2a["pipeline - 传统流水线后端"];
     B2 --> B2b["vlm - 视觉语言模型后端"];
+    B2 --> B2c["hybrid - 混合模式后端 (默认)"];
 
     B3 --> B3a["layout - DocLayout-YOLO布局检测"];
     B3 --> B3b["ocr - PP-OCRv5多语言识别"];
@@ -76,6 +78,7 @@ graph TD
     click B1a "./mineru/cli/CLAUDE.md" "查看 CLI 模块文档"
     click B2a "./mineru/backend/pipeline/CLAUDE.md" "查看 Pipeline 模块文档"
     click B2b "./mineru/backend/vlm/CLAUDE.md" "查看 VLM 模块文档"
+    click B2c "./mineru/backend/hybrid/CLAUDE.md" "查看 Hybrid 模块文档"
     click B3 "./mineru/model/CLAUDE.md" "查看模型模块文档"
     click B4 "./mineru/data/CLAUDE.md" "查看 Data 模块文档"
     click B5 "./mineru/utils/CLAUDE.md" "查看 Utils 模块文档"
@@ -93,6 +96,7 @@ graph TD
 | mineru/cli | 命令行工具、API服务、Web界面 | client.py | Python | 基础 | ✅已文档化 |
 | mineru/backend/pipeline | 传统流水线解析引擎 | pipeline_analyze.py | Python | 深度分析 | ✅已文档化 |
 | mineru/backend/vlm | 视觉语言模型解析引擎 | vlm_analyze.py | Python | 深度分析 | ✅已文档化 |
+| mineru/backend/hybrid | 混合模式解析引擎（默认） | hybrid_analyze.py | Python | 待完善 | ✅已文档化 |
 | mineru/model | AI模型封装和管理 | doclayoutyolo.py等 | Python | 深度分析 | ✅已文档化 |
 | mineru/data | 数据读写和IO抽象 | data_reader_writer/ | Python | 深度分析 | ✅已文档化 |
 | mineru/utils | 通用工具和配置 | config_reader.py等 | Python | 深度分析 | ✅已文档化 |
@@ -116,6 +120,14 @@ graph TD
 - **智能配置**: GPU内存利用率自适应（50%-90%）
 - **模型优化**: 自定义logits处理器，文档理解约束应用
 
+### Hybrid后端混合架构（v2.7.0新增，默认引擎）
+- **混合设计理念**: 结合VLM的高精度理解和Pipeline的精确文本提取能力
+- **智能文本提取**: 从文本PDF直接抽取文本，原生支持多语言，减少解析幻觉
+- **多语言OCR支持**: 支持109种语言的文本识别（扫描PDF场景）
+- **独立公式开关**: 可单独关闭行内公式识别，提升解析结果视觉效果
+- **自动引擎选择**: `hybrid-auto-engine`根据环境自动选择最佳推理引擎
+- **HTTP客户端模式**: `hybrid-http-client`支持轻量级边缘部署
+
 ### Data模块企业级实现
 - **多层抽象**: 统一读写接口，多种存储后端支持
 - **性能优化**: 异步IO操作，智能缓存机制，连接池管理
@@ -125,13 +137,13 @@ graph TD
 ## 📊 性能基准与调优指南
 
 ### 处理速度基准（GPU模式）
-| 操作类型 | Pipeline后端 | VLM后端 | 优化参数 |
-|----------|-------------|---------|----------|
-| 单页处理 | <3秒 | <5秒 | 批处理优化 |
-| 布局检测 | <100ms | 内置处理 | batch_size=1 |
-| OCR识别 | <200ms | 内置处理 | batch_size=16 |
-| 公式识别 | <200ms/公式 | 内置处理 | batch_size=16 |
-| 表格识别 | <500ms/表格 | 内置处理 | 多尺度处理 |
+| 操作类型 | Pipeline后端 | VLM后端 | Hybrid后端 | 优化参数 |
+|----------|-------------|---------|-----------|----------|
+| 单页处理 | <3秒 | <5秒 | <4秒 | 批处理优化 |
+| 布局检测 | <100ms | 内置处理 | 内置处理 | batch_size=1 |
+| OCR识别 | <200ms | 内置处理 | 直接抽取/OCR | batch_size=16 |
+| 公式识别 | <200ms/公式 | 内置处理 | 可选开关 | batch_size=16 |
+| 表格识别 | <500ms/表格 | 内置处理 | 内置处理 | 多尺度处理 |
 
 ### 内存使用优化
 ```bash
@@ -141,11 +153,16 @@ export MINERU_VIRTUAL_VRAM_SIZE=16            # 虚拟显存(GB)
 export MINERU_DEVICE_MODE=cuda                # 设备选择
 export MINERU_FORMULA_ENABLE=true             # 公式识别
 export MINERU_TABLE_ENABLE=true               # 表格识别
+
+# Hybrid 后端专用配置
+export MINERU_HYBRID_BATCH_RATIO=1            # Hybrid小模型batch倍率
+export MINERU_HYBRID_FORCE_PIPELINE_ENABLE=false  # 强制使用Pipeline文本提取
 ```
 
 ### GPU资源管理
 - **Pipeline**: 8GB+ VRAM推荐，支持CPU回退
 - **VLM**: 12GB+ VRAM推荐，Transformer需要最少8GB
+- **Hybrid**: 10GB+ VRAM推荐，平衡精度和速度
 - **批处理**: 根据VRAM动态调整batch_ratio (1-16)
 - **内存优化**: 分阶段显存清理，智能内存管理
 
@@ -159,7 +176,7 @@ Content-Type: multipart/form-data
 
 # 支持参数
 - files: 上传的PDF文件列表
-- backend: 解析引擎选择 [pipeline, vlm-transformers, vlm-vllm-engine]
+- backend: 解析引擎选择 [pipeline, hybrid-auto-engine(默认), hybrid-http-client, vlm-auto-engine, vlm-http-client]
 - parse_method: 解析方法 [auto, txt, ocr]
 - language: 语言设置 [ch, en, auto, 或具体语言代码]
 - formula_enable: 公式识别开关 [true/false]
@@ -183,7 +200,7 @@ Content-Type: multipart/form-data
     "total_pages": 10,
     "processed_pages": 10,
     "processing_time": 15.2,
-    "backend_used": "vlm-transformers"
+    "backend_used": "hybrid-auto-engine"
   }
 }
 ```
@@ -363,8 +380,11 @@ python -m pytest tests/performance/ --benchmark-only
 # 最小配置：16GB内存，6GB GPU
 mineru-api --backend pipeline
 
-# 推荐配置：32GB内存，12GB+ GPU
-mineru-api --backend vlm-transformers
+# 推荐配置：32GB内存，12GB+ GPU（默认，自动选择最佳引擎）
+mineru-api --backend hybrid-auto-engine
+
+# 高精度配置：32GB内存，16GB+ GPU
+mineru-api --backend vlm-auto-engine
 ```
 
 ### 2. 多GPU分布式部署
@@ -454,22 +474,25 @@ groups:
 4. **自定义模型**: 扩展模型层支持特殊需求
 
 ### 最佳实践
-- 选择合适的后端：Pipeline速度优先，VLM精度优先
+- 选择合适的后端：Pipeline速度优先，VLM精度优先，Hybrid平衡精度和速度（推荐默认）
 - 合理配置GPU资源，避免内存溢出
 - 启用适当的缓存策略提升性能
 - 监控关键指标，及时发现问题
 - 定期更新模型和依赖库
+- 使用auto-engine后缀让系统自动选择最佳推理引擎
 
 ## 技术亮点总结
 
-1. **双后端架构**: Pipeline稳定快速，VLM高精度理解
-2. **多引擎支持**: 统一接口支持多种推理引擎
+1. **三后端架构**: Pipeline稳定快速，VLM高精度理解，Hybrid平衡模式（默认）
+2. **多引擎支持**: 统一接口支持多种推理引擎，auto-engine自动选择
 3. **智能优化**: 自适应批处理和内存管理
 4. **企业级特性**: 完整的监控、日志、错误处理
 5. **云原生设计**: 容器化部署和分布式架构
 6. **开发友好**: 完整的测试覆盖和文档
+7. **多语言支持**: Hybrid模式原生支持109种语言识别
 
 ## 变更记录 (Changelog)
+- 2025-12-31 11:45:00 - 第五次增量更新：新增Hybrid混合后端模块（v2.7.0核心特性），更新后端架构为三引擎模式，添加自动引擎选择说明
 - 2025-11-17 17:10:09 - 第四次深度增量更新：Pipeline/VLM/Data技术实现深度分析，API文档、性能优化、运维指南，覆盖率提升至70%+
 - 2025-11-17 17:02:15 - 深度增量更新：新增Multi-GPU V2、Tests、Docker模块文档，深度分析MFR/Table实现，覆盖率提升至55%+
 - 2025-11-17 16:46:31 - 增量更新：新增Utils模块、Tianshu项目文档，更新架构图，覆盖率提升至37.5%

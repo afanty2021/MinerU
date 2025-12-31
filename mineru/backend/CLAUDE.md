@@ -3,13 +3,15 @@
 # MinerU Backend 模块
 
 ## 变更记录 (Changelog)
+- 2025-12-31 11:45:00 - 新增Hybrid混合后端文档（v2.7.0核心特性，当前默认后端）
 - 2025-11-17 16:36:36 - 初始化Backend模块文档
 
 ## 模块职责
 
-Backend模块是MinerU的核心解析引擎，提供两种不同的文档解析方案：
+Backend模块是MinerU的核心解析引擎，提供三种不同的文档解析方案：
 - **Pipeline后端**: 传统的分步处理流水线，快速稳定
 - **VLM后端**: 基于视觉语言模型的多模态理解，高精度
+- **Hybrid后端**: 混合模式（v2.7.0新增），结合Pipeline和VLM优势，**当前为默认后端**
 
 ## 子模块概览
 
@@ -20,6 +22,13 @@ Backend模块是MinerU的核心解析引擎，提供两种不同的文档解析�
 ### VLM后端 (`vlm/`)
 视觉语言模型处理方式，使用统一的VLM模型进行端到端理解：
 1. VLM模型推理 → 结果解析 → 内容生成
+
+### Hybrid后端 (`hybrid/`) - **默认后端**
+混合处理方式，结合VLM和Pipeline的优势：
+1. 智能文本抽取 → VLM模型理解 → 结果优化 → 内容生成
+- 文本PDF直接抽取文本，减少幻觉
+- 扫描PDF使用多语言OCR（支持109种语言）
+- 保留VLM的高精度布局理解能力
 
 ## 关键接口
 
@@ -94,15 +103,17 @@ async def aio_doc_analyze(pdf_bytes, **kwargs):
 
 ## 性能对比
 
-| 特性 | Pipeline | VLM |
-|------|----------|-----|
-| 精度 | 82+ (OmniDocBench) | 90+ (OmniDocBench) |
-| 速度 | 快 | 中等 |
-| 内存要求 | 较低 | 较高 |
-| GPU要求 | 可选 | 推荐 |
-| 幻觉风险 | 无 | 极低 |
-| 复杂布局 | 有限 | 优秀 |
-| 跨页支持 | 部分支持 | 完整支持 |
+| 特性 | Pipeline | Hybrid | VLM |
+|------|----------|--------|-----|
+| 精度 | 82+ (OmniDocBench) | 88+ (OmniDocBench) | 90+ (OmniDocBench) |
+| 速度 | 快 (<3s/页) | 中等 (<4s/页) | 中等 (<5s/页) |
+| 内存要求 | 较低 (8GB+) | 中等 (10GB+) | 较高 (12GB+) |
+| GPU要求 | 可选 | 推荐 | 推荐 |
+| 幻觉风险 | 无 | 极低 | 极低 |
+| 复杂布局 | 有限 | 优秀 | 优秀 |
+| 跨页支持 | 部分支持 | 完整支持 | 完整支持 |
+| 多语言 | 依赖OCR | 原生支持109种 | 原生支持 |
+| 默认后端 | ❌ | ✅ | ❌ |
 
 ## 配置选项
 
@@ -137,6 +148,18 @@ async def aio_doc_analyze(pdf_bytes, **kwargs):
 }
 ```
 
+### Hybrid特定参数
+```python
+{
+    "backend": "hybrid-auto-engine",  # 自动引擎选择
+    "model_path": "opendatalab/MinerU2.5-2509-1.2B",
+    "server_url": "",  # HTTP客户端URL
+    "formula_enable": True,  # 独立公式开关
+    "batch_ratio": 1,  # 小模型batch倍率
+    "force_pipeline_enable": False  # 强制使用Pipeline文本提取
+}
+```
+
 ## 测试与质量
 
 ### 测试覆盖
@@ -153,25 +176,38 @@ async def aio_doc_analyze(pdf_bytes, **kwargs):
 
 ## 使用建议
 
+### 选择Hybrid后端如果（推荐默认）：
+- 需要平衡精度和速度
+- 处理包含文本和扫描页面的混合PDF
+- 需要多语言支持（109种语言）
+- 希望减少解析幻觉
+- **新用户推荐使用**
+
 ### 选择Pipeline后端如果：
 - 处理大量简单文档
-- 对处理速度要求高
+- 对处理速度要求极高
 - 硬件资源有限
 - 需要稳定可预测的结果
 
 ### 选择VLM后端如果：
-- 处理复杂学术文档
-- 对精度要求极高
+- 处理极其复杂的学术文档
+- 对精度要求达到极致
 - 有充足的GPU资源
 - 需要处理跨页内容
 
 ## 常见问题 (FAQ)
 
-### Q: 两种后端的输出格式是否一致？
-A: 是的，都输出标准的middle_json格式，但VLM版本支持更多的布局类型。
+### Q: 三种后端的输出格式是否一致？
+A: 是的，都输出标准的middle_json格式。VLM和Hybrid版本支持更多的布局类型。
 
 ### Q: 如何在不同后端间切换？
-A: 通过`--backend`参数选择，如`--backend pipeline`或`--backend vlm-transformers`。
+A: 通过`--backend`参数选择，如`--backend pipeline`、`--backend hybrid-auto-engine`（默认）或`--backend vlm-auto-engine`。
+
+### Q: 为什么默认后端是Hybrid？
+A: Hybrid结合了Pipeline的精确文本提取和VLM的高精度理解，在大多数场景下提供最佳的平衡体验。
+
+### Q: 什么时候应该使用auto-engine后缀？
+A: 建议始终使用auto-engine后缀（如hybrid-auto-engine），让系统根据当前环境自动选择最佳推理引擎。
 
 ### Q: VLM后端是否支持混合精度？
 A: 支持部分推理引擎的混合精度，可以降低内存使用。
@@ -196,9 +232,15 @@ A: 可以，通过配置文件选择不同的OCR模型，如PP-OCRv5等。
 - vlm_middle_json_mkcontent.py - 内容生成
 - utils.py - 工具函数
 
+### Hybrid后端（v2.7.0新增）
+- hybrid_analyze.py - Hybrid分析流程
+- hybrid_magic_model.py - Hybrid模型管理
+- hybrid_model_output_to_middle_json.py - 结果转换
+
 ### 共享文件
 - utils.py - 后端通用工具
 - __init__.py - 模块初始化
 
 ## 变更记录 (Changelog)
+- 2025-12-31 11:45:00 - 新增Hybrid混合后端文档（v2.7.0核心特性，当前默认后端）
 - 2025-11-17 16:36:36 - 初始化Backend模块文档
